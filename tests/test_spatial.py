@@ -811,6 +811,45 @@ def test_calc_point_to_point_distances():
     assert list(distance_matrix.id_neighbor.data) == ["g2", "g3"]
 
 
+def test_get_closest_lines_to_point():
+    # Test that the correct distance is calculated and cml-gauge pairs identified
+    closest_gauges = plg.spatial.get_closest_points_to_line(
+        ds_cmls=ds_cmls,
+        ds_gauges=ds_gauge.sel(id=["g2", "g3"]),
+        max_distance=2,
+        n_closest=1,
+    )
+
+    expected_distances = np.array([[0], [0], [np.sqrt(2) / 2]]).reshape(-1, 1)
+
+    assert closest_gauges.distance.data == pytest.approx(expected_distances, abs=1e-6)
+    assert list(closest_gauges.cml_id.data) == ["cml1", "cml2", "cml3"]
+    assert list(closest_gauges.neighbor_id.data) == ["g3", "g2", "g3"]  # g3 is close
+
+    # Test that getting the 2 nearest gauges for cml 3 sets nan when the
+    # maximum distance is too short
+    closest_gauges = plg.spatial.get_closest_points_to_line(
+        ds_cmls=ds_cmls,
+        ds_gauges=ds_gauge.sel(id=["g2", "g3"]),
+        max_distance=1,
+        n_closest=2,
+    )
+
+    expected = np.array([[False, False], [False, False], [False, True]])
+
+    assert (np.isinf(closest_gauges.distance.data) == expected).all()
+
+    # Test that when selecting only 1 CML or gauge the dimension is restored
+    # and the function runs as normal
+    closest_gauges = plg.spatial.get_closest_points_to_line(
+        ds_cmls=ds_cmls.isel(cml_id=0),
+        ds_gauges=ds_gauge.sel(id="g2"),
+        max_distance=1,
+        n_closest=2,
+    )
+    assert closest_gauges.cml_id.size == 1
+
+
 def test_get_closest_points_to_line():
     # Test that the correct distance is calculated and cml-gauge pairs identified
     closest_gauges = plg.spatial.get_closest_points_to_line(
